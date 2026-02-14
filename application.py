@@ -62,7 +62,8 @@ def register():
 
         return redirect("/login")
 
-    return "Register Page"
+    return render_template("register.html")
+
 
 
 # =========================
@@ -86,7 +87,7 @@ def login():
 
         return "Invalid login"
 
-    return "Login Page"
+    return render_template("register.html")
 
 
 # =========================
