@@ -3,7 +3,11 @@
 <head>
     <title>{{ book.title }}</title>
 </head>
+<hr>
+
 <body>
+<a href="/logout">Logout</a>
+<hr>
 
 <h1>{{ book.title }}</h1>
 
@@ -15,17 +19,9 @@
 
 <h3>Leave a Review</h3>
 
-<form action="/review" method="post">
-    <input type="hidden" name="isbn" value="{{ book.isbn }}">
-
-    Rating:
-    <select name="rating">
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5">5</option>
-    </select>
+<form method="post">
+    Rating (1-5):
+    <input type="number" name="rating" min="1" max="5" required>
 
     <br><br>
 
@@ -36,11 +32,22 @@
     <button type="submit">Submit Review</button>
 </form>
 
-<br>
-<a href="/search">Back to Search</a>
+<hr>
 
-</body>
-</html>
+<h3>Reviews:</h3>
+
+{% if reviews %}
+<ul>
+{% for r in reviews %}
+    <li>
+        ⭐ {{ r.rating }}/5 <br>
+        {{ r.review }}
+    </li>
+{% endfor %}
+</ul>
+{% else %}
+<p>No reviews yet.</p>
+{% endif %}
 
 <br>
 <a href="/search">Back to Search</a>
