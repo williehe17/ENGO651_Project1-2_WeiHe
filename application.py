@@ -93,13 +93,16 @@ def login():
 # ====================
 # SEARCH PAGE
 # ====================
-@app.route("/search", methods=["GET"])
+@app.route("/search", methods=["GET", "POST"])
 def search():
 
     if not session.get("user_id"):
         return redirect("/login")
 
-    return "Search Page"
+    if request.method == "POST":
+        return "Search Results Coming Soon"
+
+    return render_template("search.html")
 
 
 # =========================
