@@ -33,7 +33,13 @@ db.commit()
 
 @app.route("/")
 def index():
+
+    # Require login
+    if session.get("user_id") is None:
+        return redirect("/login")
+
     return "Project 1: TODO"
+
 
 
 # =========================
@@ -87,7 +93,7 @@ def login():
 
         return "Invalid login"
 
-    return render_template("register.html")
+    return render_template("login.html")
 
 
 # =========================
