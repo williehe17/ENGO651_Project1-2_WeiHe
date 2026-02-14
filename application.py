@@ -138,7 +138,35 @@ def book(isbn):
 
     return render_template("book.html", book=book)
 
+# =========================
+# ADD REVIEW
+# =========================
+@app.route("/review", methods=["POST"])
+def review():
 
+    if not session.get("user_id"):
+        return redirect("/login")
+
+    isbn = request.form.get("isbn")
+    rating = request.form.get("rating")
+    review = request.form.get("review")
+
+    db.execute(
+        text("""
+            INSERT INTO reviews (user_id, isbn, rating, review)
+            VALUES (:user_id, :isbn, :rating, :review)
+        """),
+        {
+            "user_id": session["user_id"],
+            "isbn": isbn,
+            "rating": rating,
+            "review": review
+        }
+    )
+
+    db.commit()
+
+    return redirect(f"/book/{isbn}")
 
 # =========================
 # LOGOUT
