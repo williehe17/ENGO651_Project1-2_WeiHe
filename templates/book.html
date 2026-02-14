@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ book.title }}</title>
+</head>
+<body>
+
+<h1>{{ book.title }}</h1>
+
+<p><strong>Author:</strong> {{ book.author }}</p>
+<p><strong>Year:</strong> {{ book.year }}</p>
+<p><strong>ISBN:</strong> {{ book.isbn }}</p>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ book.title }}</title>
+</head>
+<body>
+
+<h1>{{ book.title }}</h1>
+
+<p><strong>Author:</strong> {{ book.author }}</p>
+<p><strong>Year:</strong> {{ book.year }}</p>
+<p><strong>ISBN:</strong> {{ book.isbn }}</p>
+
+<hr>
+
+<h3>Leave a Review</h3>
+
+<form action="/review" method="post">
+    <input type="hidden" name="isbn" value="{{ book.isbn }}">
+
+    Rating:
+    <select name="rating">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+    </select>
+
+    <br><br>
+
+    <textarea name="review" placeholder="Write your review"></textarea>
+
+    <br><br>
+
+    <button type="submit">Submit Review</button>
+</form>
+
+<br>
+<a href="/search">Back to Search</a>
+
+</body>
+</html>
+
+<br>
+<a href="/search">Back to Search</a>
+
+</body>
+</html>
