@@ -3,9 +3,9 @@
 <head>
     <title>{{ book.title }}</title>
 </head>
-<hr>
 
 <body>
+
 <a href="/logout">Logout</a>
 <hr>
 
@@ -14,6 +14,12 @@
 <p><strong>Author:</strong> {{ book.author }}</p>
 <p><strong>Year:</strong> {{ book.year }}</p>
 <p><strong>ISBN:</strong> {{ book.isbn }}</p>
+
+{% if summary %}
+<hr>
+<h3>AI Summary</h3>
+<p>{{ summary }}</p>
+{% endif %}
 
 <hr>
 

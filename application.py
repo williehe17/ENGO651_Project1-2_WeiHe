@@ -129,13 +129,14 @@ def book(isbn):
     if "user_id" not in session:
         return redirect("/login")
 
-    # If user submits a review
+    # =========================
+    # HANDLE REVIEW SUBMISSION
+    # =========================
     if request.method == "POST":
 
         rating = request.form.get("rating")
         review = request.form.get("review")
 
-        # Prevent users from submitting more than one review per book
         existing = db.execute(text("""
             SELECT * FROM reviews
             WHERE user_id = :uid AND isbn = :isbn
@@ -158,15 +159,18 @@ def book(isbn):
         })
 
         db.commit()
-
         return redirect(f"/book/{isbn}")
 
-    # Get book info
+    # =========================
+    # GET BOOK FROM DATABASE
+    # =========================
     book = db.execute(text("""
         SELECT * FROM books WHERE isbn = :isbn
     """), {"isbn": isbn}).fetchone()
 
-    # Get extra data from Google Books API
+    # =========================
+    # GOOGLE BOOKS API
+    # =========================
     google_data = None
 
     res = requests.get(
@@ -184,11 +188,50 @@ def book(isbn):
                 "publishedDate": volume.get("publishedDate"),
                 "description": volume.get("description"),
                 "averageRating": volume.get("averageRating"),
-                "ratingsCount": volume.get("ratingsCount"),
-                "industryIdentifiers": volume.get("industryIdentifiers")
+                "ratingsCount": volume.get("ratingsCount")
             }
 
-    # Get reviews
+    # =========================
+    # GEMINI AI SUMMARY
+    # =========================
+    summary = None
+
+    text_to_summarize = (
+        google_data.get("description")
+        if google_data and google_data.get("description")
+        else f"{book.title} by {book.author}, published in {book.year}."
+    )
+
+    api_key = os.getenv("GEMINI_API_KEY")
+
+    try:
+        gemini_response = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}",
+            headers={"Content-Type": "application/json"},
+            json={
+                "contents": [{
+                    "parts": [{
+                        "text": f"summarize this text using less than 50 words: {text_to_summarize}"
+                    }]
+                }]
+            }
+        )
+
+        print("GEMINI STATUS:", gemini_response.status_code)
+
+        if gemini_response.status_code == 200:
+            gemini_json = gemini_response.json()
+            summary = gemini_json["candidates"][0]["content"]["parts"][0]["text"]
+
+    except Exception as e:
+        print("Gemini Error:", e)
+
+    print("FINAL SUMMARY:", summary)
+    print(gemini_response.status_code, gemini_response.text)
+
+    # =========================
+    # GET REVIEWS
+    # =========================
     reviews = db.execute(text("""
         SELECT users.username, reviews.rating, reviews.review
         FROM reviews
@@ -197,12 +240,13 @@ def book(isbn):
     """), {"isbn": isbn}).fetchall()
 
     return render_template(
-    "book.html",
-    book=book,
-    reviews=reviews,
-    google_data=google_data
+        "book.html",
+        book=book,
+        reviews=reviews,
+        google_data=google_data,
+        summary=summary
     )
-
+    
 # =========================
 # ADD REVIEW
 # =========================
