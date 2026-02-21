@@ -1,4 +1,5 @@
 import os
+import requests
 from flask import Flask, session, request, redirect, render_template
 from flask_session import Session
 from sqlalchemy import create_engine, text
@@ -165,6 +166,28 @@ def book(isbn):
         SELECT * FROM books WHERE isbn = :isbn
     """), {"isbn": isbn}).fetchone()
 
+    # Get extra data from Google Books API
+    google_data = None
+
+    res = requests.get(
+        "https://www.googleapis.com/books/v1/volumes",
+        params={"q": f"isbn:{isbn}"}
+    )
+
+    if res.status_code == 200:
+        data = res.json()
+
+        if data.get("totalItems", 0) > 0:
+            volume = data["items"][0]["volumeInfo"]
+
+            google_data = {
+                "publishedDate": volume.get("publishedDate"),
+                "description": volume.get("description"),
+                "averageRating": volume.get("averageRating"),
+                "ratingsCount": volume.get("ratingsCount"),
+                "industryIdentifiers": volume.get("industryIdentifiers")
+            }
+
     # Get reviews
     reviews = db.execute(text("""
         SELECT users.username, reviews.rating, reviews.review
@@ -173,7 +196,12 @@ def book(isbn):
         WHERE isbn = :isbn
     """), {"isbn": isbn}).fetchall()
 
-    return render_template("book.html", book=book, reviews=reviews)
+    return render_template(
+    "book.html",
+    book=book,
+    reviews=reviews,
+    google_data=google_data
+    )
 
 # =========================
 # ADD REVIEW
