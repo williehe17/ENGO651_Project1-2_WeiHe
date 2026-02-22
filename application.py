@@ -285,12 +285,22 @@ def logout():
     session.clear()
     return redirect("/")
 
+# =========================
+# BOOK API JSON ROUTE
+# =========================
 @app.route("/api/<isbn>")
 def book_api(isbn):
+    """
+    API Route:
+    Returns JSON data for a book including:
+    title, author, publishedDate, ISBN_10, ISBN_13,
+    reviewCount, averageRating, description (Google Books),
+    and summarizedDescription (Gemini AI).
+    """
 
-    # -------------------------
-    # Get book from database
-    # -------------------------
+    # --------------------------------------------------
+    # 1. Retrieve book from local database
+    # --------------------------------------------------
     book = db.execute(text("""
         SELECT * FROM books WHERE isbn = :isbn
     """), {"isbn": isbn}).fetchone()
@@ -298,9 +308,9 @@ def book_api(isbn):
     if not book:
         return jsonify({"error": "Book not found"}), 404
 
-    # -------------------------
-    # Get review stats
-    # -------------------------
+    # --------------------------------------------------
+    # 2. Retrieve review statistics
+    # --------------------------------------------------
     stats = db.execute(text("""
         SELECT COUNT(*) AS reviewCount,
                AVG(rating) AS averageRating
@@ -311,9 +321,9 @@ def book_api(isbn):
     review_count = stats.reviewcount if stats.reviewcount else 0
     average_rating = float(stats.averagerating) if stats.averagerating else None
 
-    # -------------------------
-    # Google Books API
-    # -------------------------
+    # --------------------------------------------------
+    # 3. Query Google Books API
+    # --------------------------------------------------
     description = None
     isbn10 = None
     isbn13 = None
@@ -328,50 +338,65 @@ def book_api(isbn):
             data = google_res.json()
 
             if data.get("items"):
-                info = data["items"][0]["volumeInfo"]
+                # Loop through items to find best available data
+                for item in data["items"]:
+                    info = item.get("volumeInfo", {})
 
-                description = info.get("description")
+                    # Extract description if available
+                    if not description:
+                        description = info.get("description")
 
-                for i in info.get("industryIdentifiers", []):
-                    if i["type"] == "ISBN_10":
-                        isbn10 = i["identifier"]
-                    if i["type"] == "ISBN_13":
-                        isbn13 = i["identifier"]
+                    # Extract ISBN identifiers
+                    for i in info.get("industryIdentifiers", []):
+                        if i.get("type") == "ISBN_10":
+                            isbn10 = i.get("identifier")
+                        if i.get("type") == "ISBN_13":
+                            isbn13 = i.get("identifier")
+
+                    # Stop early once description is found
+                    if description:
+                        break
 
     except Exception as e:
         print("Google API error:", e)
 
-    # -------------------------
-    # Gemini summary
-    # -------------------------
+    # --------------------------------------------------
+    # 4. Generate AI Summary using Gemini API
+    # --------------------------------------------------
     summary = None
 
-    if description:
-        api_key = os.getenv("GEMINI_API_KEY")
+    # Generate summary even if description is missing
+    text_to_summarize = (
+        description
+        if description
+        else f"{book.title} by {book.author}, published in {book.year}."
+    )
 
-        try:
-            gemini_response = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}",
-                headers={"Content-Type": "application/json"},
-                json={
-                    "contents": [{
-                        "parts": [{
-                            "text": f"Summarize this text in less than 50 words:\n{description}"
-                        }]
+    api_key = os.getenv("GEMINI_API_KEY")
+
+    try:
+        gemini_response = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}",
+            headers={"Content-Type": "application/json"},
+            json={
+                "contents": [{
+                    "parts": [{
+                        "text": f"Summarize this text in less than 50 words:\n{text_to_summarize}"
                     }]
-                }
-            )
+                }]
+            }
+        )
 
-            if gemini_response.status_code == 200:
-                gemini_data = gemini_response.json()
-                summary = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
+        if gemini_response.status_code == 200:
+            gemini_data = gemini_response.json()
+            summary = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
 
-        except Exception as e:
-            print("Gemini error:", e)
+    except Exception as e:
+        print("Gemini error:", e)
 
-    # -------------------------
-    # Return JSON
-    # -------------------------
+    # --------------------------------------------------
+    # 5. Return JSON response 
+    # --------------------------------------------------
     return jsonify({
         "title": book.title,
         "author": book.author,
@@ -380,6 +405,6 @@ def book_api(isbn):
         "ISBN_13": isbn13,
         "reviewCount": review_count,
         "averageRating": average_rating,
+        "description": description,
         "summarizedDescription": summary
     })
-
