@@ -120,9 +120,9 @@ def search():
     return render_template("search.html")
 
 
-# =========================
-# BOOK PAGE
-# =========================
+# ======================================================
+# BOOK PAGE – View book details, reviews, AI summary
+# ======================================================
 @app.route("/book/<isbn>", methods=["GET", "POST"])
 def book(isbn):
 
@@ -173,23 +173,27 @@ def book(isbn):
     # =========================
     google_data = None
 
-    res = requests.get(
-        "https://www.googleapis.com/books/v1/volumes",
-        params={"q": f"isbn:{isbn}"}
-    )
+    try:
+        res = requests.get(
+            "https://www.googleapis.com/books/v1/volumes",
+            params={"q": f"isbn:{isbn}"}
+        )
 
-    if res.status_code == 200:
-        data = res.json()
+        if res.status_code == 200:
+            data = res.json()
 
-        if data.get("totalItems", 0) > 0:
-            volume = data["items"][0]["volumeInfo"]
+            if data.get("totalItems", 0) > 0:
+                volume = data["items"][0]["volumeInfo"]
 
-            google_data = {
-                "publishedDate": volume.get("publishedDate"),
-                "description": volume.get("description"),
-                "averageRating": volume.get("averageRating"),
-                "ratingsCount": volume.get("ratingsCount")
-            }
+                google_data = {
+                    "publishedDate": volume.get("publishedDate"),
+                    "description": volume.get("description"),
+                    "averageRating": volume.get("averageRating"),
+                    "ratingsCount": volume.get("ratingsCount")
+                }
+
+    except Exception as e:
+        print("Google API error:", e)
 
     # =========================
     # GEMINI AI SUMMARY
@@ -217,17 +221,12 @@ def book(isbn):
             }
         )
 
-        print("GEMINI STATUS:", gemini_response.status_code)
-
         if gemini_response.status_code == 200:
             gemini_json = gemini_response.json()
             summary = gemini_json["candidates"][0]["content"]["parts"][0]["text"]
 
     except Exception as e:
         print("Gemini Error:", e)
-
-    print("FINAL SUMMARY:", summary)
-    print(gemini_response.status_code, gemini_response.text)
 
     # =========================
     # GET REVIEWS
@@ -239,12 +238,30 @@ def book(isbn):
         WHERE isbn = :isbn
     """), {"isbn": isbn}).fetchall()
 
+    # =========================
+    # DATABASE REVIEW STATS
+    # =========================
+    stats = db.execute(text("""
+        SELECT COUNT(*) AS review_count,
+               AVG(rating) AS average_rating
+        FROM reviews
+        WHERE isbn = :isbn
+    """), {"isbn": isbn}).fetchone()
+
+    review_count = stats.review_count if stats.review_count else 0
+    average_rating = float(stats.average_rating) if stats.average_rating else None
+
+    # =========================
+    # RENDER PAGE
+    # =========================
     return render_template(
         "book.html",
         book=book,
         reviews=reviews,
         google_data=google_data,
-        summary=summary
+        summary=summary,
+        average_rating=average_rating,
+        review_count=review_count
     )
     
 # =========================
